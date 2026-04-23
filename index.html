@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WHM PRO - BY VINH</title>
+    <title>WHM PRO SHIPPING - BY VINH</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -40,7 +40,7 @@
             <button @click="syncCloud" :disabled="isSyncing || queue.length === 0" 
                     class="w-full bg-rose-600 text-white py-4 rounded-xl font-bold text-lg shadow-md hover:bg-rose-700 active:scale-95 transition-all disabled:opacity-50 flex justify-center items-center gap-2">
                 <span v-if="isSyncing" class="animate-spin text-xl">⏳</span>
-                {{ isSyncing ? 'Đang đẩy dữ liệu...' : '🚀 Xuất kho...' }}
+                {{ isSyncing ? 'ĐANG ĐẨY DỮ LIỆU...' : '🚀 XUẤT KHO...' }}
             </button>
         </div>
     </div>
@@ -87,7 +87,8 @@
             const currentTime = ref('');
             const tagInput = ref(null);
 
-            const CLOUD_API = 'https://script.google.com/macros/s/AKfycbzgLY9ce0Tv7th4tZe06uKkKSUjXDT_HVeDj6Wo-bnhw8cu4-boIdFwIAlrXNOuunJu/exec';
+            // Thay bằng Link Web App của anh
+            const CLOUD_API = 'https://script.google.com/macros/s/AKfycbz4KFQCGe5Y3n4tDoREAj1RIpcF41nfCQICtk5YJ2MbeuHKrAZJcvPqXBa3l6T6U4gV/exec';
 
             const queueReversed = computed(() => [...queue.value].reverse());
 
@@ -99,17 +100,14 @@
                 const scannedTag = form.value.tag.trim();
                 if (!scannedTag) return;
 
-                // --- THUẬT TOÁN KIỂM TRA TRÙNG (DUPLICATE CHECK) ---
                 const isDuplicate = queue.value.some(item => item.tag === scannedTag);
-                
                 if (isDuplicate) {
-                    alert(`⚠️ CẢNH BÁO: Tag ID [${scannedTag}] đã được quét trước đó trong danh sách chờ!`);
-                    form.value.tag = ''; // Xóa mã trùng ở ô nhập
+                    alert(`⚠️ CẢNH BÁO: Tag ID [${scannedTag}] đã được quét trước đó!`);
+                    form.value.tag = ''; 
                     nextTick(() => tagInput.value.focus());
-                    return; // Dừng xử lý, không thêm vào mảng
+                    return;
                 }
 
-                // Nếu không trùng thì thêm vào hàng chờ
                 queue.value.push({
                     id: Date.now(),
                     tag: scannedTag,
@@ -125,26 +123,31 @@
                 isSyncing.value = true;
                 try {
                     const payload = { 
-                        action: "shipping", 
+                        action: "shipping", // Gửi hành động xuất kho
                         data: queue.value.map(i => ({
                             tagID: i.tag,
                             thoiGian: i.time 
                         }))
                     };
 
-                    await fetch(CLOUD_API, {
+                    const response = await fetch(CLOUD_API, {
                         method: 'POST',
-                        mode: 'no-cors',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' }, 
                         body: JSON.stringify(payload)
                     });
 
-                    alert("🚀 Đã đồng bộ thành công dữ liệu xuất hàng!");
-                    queue.value = [];
-                    saveLocal();
-                    nextTick(() => tagInput.value.focus());
+                    const result = await response.json();
+                    
+                    if (result.result && result.result.includes("thành công")) {
+                        alert("🚀 " + result.result);
+                        queue.value = [];
+                        saveLocal();
+                        nextTick(() => tagInput.value.focus());
+                    } else {
+                        alert("⚠️ Server báo lỗi: " + (result.result || "Không xác định"));
+                    }
                 } catch (e) {
-                    alert("❌ Lỗi: Không thể kết nối Cloud!");
+                    alert("❌ Lỗi kết nối Cloud: " + e.message);
                 } finally {
                     isSyncing.value = false;
                 }
@@ -157,10 +160,7 @@
                 const newVal = prompt("Sửa lại Tag ID:", item.tag);
                 if (newVal) {
                     const checkNewVal = queue.value.some(i => i.tag === newVal.trim() && i.id !== id);
-                    if(checkNewVal) {
-                        alert("Mã này đã tồn tại trong danh sách!");
-                        return;
-                    }
+                    if(checkNewVal) { alert("Mã này đã tồn tại!"); return; }
                     item.tag = newVal.trim(); 
                     saveLocal(); 
                 }
